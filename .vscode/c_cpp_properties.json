@@ -1,0 +1,16 @@
+{
+    "configurations": [{
+        "name": "Linux",
+        "includePath": [
+            "${workspaceFolder}/**"
+        ],
+        "defines": ["USE_HAL_DRIVER",
+            "STM32F103xB"
+        ],
+        "compilerPath": "/usr/bin/arm-none-eabi-gcc",
+        "cStandard": "c11",
+        "cppStandard": "c++17",
+        "intelliSenseMode": "gcc-x86"
+    }],
+    "version": 4
+}
