@@ -286,6 +286,7 @@ void StartDefaultTask(void *argument)
   for(;;)
   {
     osDelay(1);
+    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
   }
   /* USER CODE END 5 */ 
 }

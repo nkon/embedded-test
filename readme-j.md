@@ -12,7 +12,7 @@
 
 ## ツリー構造
 
-* プロジェクトルートの「一つ下」にコード生成する。プロジェクト直下にコード生成しない。
+* プロジェクトルートの「1つ下」にコード生成する。プロジェクト直下にコード生成しない。
 * 自動生成されたツリーとは別に`App`ディレクトリを作り、自分で書いたコードはその下に入れる。ただし、必要最小限で生成コードを編集しても良い。なるべく早く、`App`下のコードに飛んでくる。
 
 
@@ -55,4 +55,38 @@
 
 STM32の場合は、OSが使うタイマとしてSysTickではなくTIMxを使うように推奨されるので、CubeMXの設定でTIMxをOSが使うように設定する。
 基本的には自動で設定してくれる。OSのタイマを適切に使うことで、`osDelay(ms)`のようなディレイ関数がタスク中で使える。`osDelay(ms)`は、引数で指定したミリセコンドだけ待つが、呼び出したスレッドは`BLOCKED`状態にして他に待っているタスクがあれば制御を渡す。
+
+UIなどの遅いタスクは、ベタ書き＆`osDelay`の組み合わせで書いて良い。他のタスクとの並行動作はRTOSが面倒を見てくれる。
+
+```c
+void StartUiTask(void *argument)
+{
+  /* USER CODE BEGIN StartUiTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
+    osDelay(1000);
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
+    osDelay(1000);
+  }
+  /* USER CODE END StartUiTask */
+}
+
+```
+
+### アイドルタスクの設定
+
+組み込みシステムでは消費電力を低減するために、不要な場合はMCUをスリープモードに入れる。RTOSには、一般的にアイドルタスクが、最低優先度のタスクとして定義されていて、他に実行待ちのタスクが無い時にアイドルタスクが呼ばれる。つまり、アイドルタスクの中でスリープモードに入れば、不要な時にスリープするようになる。Cortex-Mの場合、スリープに入るインストラクションは`WFI`(wait for interrupt)として知られているがSTM32の場合は、清く正しくAPI(`HAL_PWR_EnterSLEEPMode()`)を使おう。RTOSがOS_TICKごとにSLEEPから起動して実行しなければならないタスクがあれば実行してくれる。
+
+```c
+void StartDefaultTask(void *argument)
+{
+  for(;;)
+  {
+    osDelay(1);
+    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
+  }
+}
+```
 
