@@ -14,7 +14,7 @@
 * Project Manager
     + Toolchain: Makefile
 
-blinkyを作る(とりあえずOS無しバージョン)
+blinkyを作る（とりあえずOS無しバージョン）
 
 flash.sh で書き込む。
 
@@ -24,7 +24,11 @@ flash.sh で書き込む。
 
 * RTOSのタスクでBlinky.
 
-#
+# 9e7c1bf26c0ec29eb0582e3e15201fe235a60f20
 
 * アイドルタスクでSleepするようにした。
+
+#
+
+* ユーザコードを`App/`下に移す。
 

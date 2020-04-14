@@ -73,7 +73,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
-void StartUiTask(void *argument);
+extern void StartUiTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -289,27 +289,6 @@ void StartDefaultTask(void *argument)
     HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
   }
   /* USER CODE END 5 */ 
-}
-
-/* USER CODE BEGIN Header_StartUiTask */
-/**
-* @brief Function implementing the UiTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartUiTask */
-void StartUiTask(void *argument)
-{
-  /* USER CODE BEGIN StartUiTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
-    osDelay(1000);
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
-    osDelay(1000);
-  }
-  /* USER CODE END StartUiTask */
 }
 
  /**
