@@ -29,6 +29,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 typedef StaticTask_t osStaticThreadDef_t;
+typedef StaticTimer_t osStaticTimerDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -47,22 +48,35 @@ UART_HandleTypeDef huart2;
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
+uint32_t defaultTaskBuffer[ 128 ];
+osStaticThreadDef_t defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
-/* Definitions for UiTask */
-osThreadId_t UiTaskHandle;
-uint32_t UiTaskBuffer[ 128 ];
-osStaticThreadDef_t UiTaskControlBlock;
-const osThreadAttr_t UiTask_attributes = {
-  .name = "UiTask",
-  .stack_mem = &UiTaskBuffer[0],
-  .stack_size = sizeof(UiTaskBuffer),
-  .cb_mem = &UiTaskControlBlock,
-  .cb_size = sizeof(UiTaskControlBlock),
+  .stack_mem = &defaultTaskBuffer[0],
+  .stack_size = sizeof(defaultTaskBuffer),
+  .cb_mem = &defaultTaskControlBlock,
+  .cb_size = sizeof(defaultTaskControlBlock),
   .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for AppTask */
+osThreadId_t AppTaskHandle;
+uint32_t AppTaskBuffer[ 128 ];
+osStaticThreadDef_t AppTaskControlBlock;
+const osThreadAttr_t AppTask_attributes = {
+  .name = "AppTask",
+  .stack_mem = &AppTaskBuffer[0],
+  .stack_size = sizeof(AppTaskBuffer),
+  .cb_mem = &AppTaskControlBlock,
+  .cb_size = sizeof(AppTaskControlBlock),
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for RtTimer */
+osTimerId_t RtTimerHandle;
+osStaticTimerDef_t RtTimerControlBlock;
+const osTimerAttr_t RtTimer_attributes = {
+  .name = "RtTimer",
+  .cb_mem = &RtTimerControlBlock,
+  .cb_size = sizeof(RtTimerControlBlock),
 };
 /* USER CODE BEGIN PV */
 
@@ -73,7 +87,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
-extern void StartUiTask(void *argument);
+extern void StartAppTask(void *argument);
+extern void RtCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -128,6 +143,10 @@ int main(void)
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
+  /* Create the timer(s) */
+  /* creation of RtTimer */
+  RtTimerHandle = osTimerNew(RtCallback, osTimerPeriodic, NULL, &RtTimer_attributes);
+
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
@@ -140,8 +159,8 @@ int main(void)
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* creation of UiTask */
-  UiTaskHandle = osThreadNew(StartUiTask, NULL, &UiTask_attributes);
+  /* creation of AppTask */
+  AppTaskHandle = osThreadNew(StartAppTask, NULL, &AppTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -285,7 +304,6 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
     HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
   }
   /* USER CODE END 5 */ 

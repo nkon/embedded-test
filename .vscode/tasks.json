@@ -6,7 +6,27 @@
         {
             "label": "make",
             "type": "shell",
-            "command": "(cd blinky; make)",
+            "command": "make -C blinky",
+            "args": [],
+            "group": "build",
+            "presentation": {},
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "make clean",
+            "type": "shell",
+            "command": "make -C blinky clean",
+            "args": [],
+            "group": "build",
+            "presentation": {},
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "make test",
+            "type": "shell",
+            "command": "make -C blinky TEST=1",
             "args": [],
             "group": "build",
             "presentation": {},

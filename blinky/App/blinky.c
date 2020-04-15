@@ -1,17 +1,24 @@
 #include "main.h"
+#include "cmsis_os.h"
+
+extern osTimerId_t RtTimerHandle;
+
+static void StartApp(void);
+static void StartTest(void);
 
 
-/* USER CODE BEGIN Header_StartUiTask */
-/**
-* @brief Function implementing the UiTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartUiTask */
-void StartUiTask(void *argument)
+void StartAppTask(void *argument)
 {
-  /* USER CODE BEGIN StartUiTask */
-  /* Infinite loop */
+#if TEST
+    StartTest();
+#else
+    StartApp();
+#endif // TEST
+}
+
+static void StartApp(void)
+{
+  osTimerStart(RtTimerHandle, 10);
   for(;;)
   {
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
@@ -19,5 +26,24 @@ void StartUiTask(void *argument)
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
     osDelay(1000);
   }
-  /* USER CODE END StartUiTask */
 }
+
+#if TEST
+static void StartTest(void)
+{
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
+  for(;;)
+  {
+  }
+}
+#endif // TEST
+
+/* RtCallback function */
+void RtCallback(void *argument)
+{
+  /* USER CODE BEGIN RtCallback */
+  
+  /* USER CODE END RtCallback */
+}
+

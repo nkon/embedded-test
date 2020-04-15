@@ -4,8 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/blinky/Middlewares/Third_Party/FreeRTOS/
-                Source/portable/GCC/ARM_CM3"
+                "${workspaceFolder}/blinky/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM3"
             ],
             "defines": [
                 "USE_HAL_DRIVER",

@@ -90,10 +90,136 @@ void StartDefaultTask(void *argument)
 }
 ```
 
-### アプリ関数を外部ファイルに移す。
+## アプリ関数を外部ファイルに移す。
 
 なるべく早い段階で、自動生成するファイルとユーザコードが入るファイルを分けるべきだ。
 
 * CubeMXの場合はタスクのCode Generation Optionに`As external`とすれば、外部ファイルにあるとしてリンクのみ行うことができる。雛形が欲しければ`As weak`とすれば良い。
 * `Makefile`で対象ファイルをコンパイル・リンクするようにする。
+
+### タスクの構成
+
+コード生成系との兼ね合いがあるが、次のようなタスク構成は有用だろう。
+
+
+|task name  |Priority            |CodeGeneration|
+|-----------|--------------------|--------------|
+|defaultTask|`osPriorityLow`     |Default       |
+|AppTask    |`osPriorityNormal`  |As External   |
+
+|timer name |Type                |CodeGeneration|
+|-----------|--------------------|--------------|
+|RtTimer    |`osTimerPeriodic`   |As External   |
+
+
+* `defaultTask`
+    + Sleep Modeへ入るために`osPriorityLow`とする。
+    + すきあらばSleep Modeに入る。
+* `AppTask`
+    + コード生成が`As External`なので、`main.c`には生成されない。`App/blinly.c`にタスクコールバックを作成する。
+    + defaultTaskより高い優先度にする。
+    + `#define TEST`ならば、テストルーチンを起動する。
+    + `#undef TEST`ならば、アプリルーチンを起動する。
+* `StartApp()`
+    + `AppTask`のタスクコールバックから呼ばれる普通の関数。
+    + タイマ（この想定ではハードウエア制御のための高頻度高精度タイマルーチン）を起動する。
+    + 低速応答は`osDelay()`で処理する。
+* `StartTest()`
+    + `AppTask`のタスクコールバックから呼ばれる普通の関数。
+    + テストを実行する。
+    + テストがOKならLEDを点灯して無限ループで停止。
+    + テストがNGならLEDを消灯して無限ループで停止。
+
+こうすれば、自動生成される`main.c`は`StartDefaultTask()`の中を1行書き換える（`HAL_PWR_EnterSLEEPMode()`を呼ぶ）だけで、他の手書きの修正は`App/`以下に閉じ込めておくことができる。さらに、`main.c`の変更は、`/* USER CODE BEGIN */`で囲まれているので、再生成しても保存される。
+
+
+`main.c`
+```c
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
+  }
+  /* USER CODE END 5 */ 
+}
+```
+
+`App/blinky.c`
+```c
+void StartAppTask(void *argument)
+{
+#if TEST
+    StartTest();
+#else
+    StartApp();
+#endif // TEST
+}
+
+void StartApp(void)
+{
+  osTimerStart(RtTimerHandle, 10);
+  for(;;)
+  {
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
+    osDelay(1000);
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
+    osDelay(1000);
+  }
+}
+
+void StartTest(void *argument)
+{
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
+  for(;;)
+  {
+  }
+}
+
+/* RtCallback function */
+void RtCallback(void *argument)
+{
+  /* USER CODE BEGIN RtCallback */
+  
+  /* USER CODE END RtCallback */
+}
+```
+
+
+## テストモードの作成
+
+通常、IDEでプロジェクトを生成すると`Debug`と`Release`のコンフィグレーションが設定されることが多い。そこに`Test`というコンフィグレーションを付け加えて欲しい。設定は次のとおりだ。
+
+|config   |compiler option|`#define`|
+|---------|---------------|---------|
+|`Release`|optimized      |`NDEBUG` |
+|`Debug`  |normal         |         |
+|`Test`   |normal         |`TEST`   |
+
+`-DTEST`のときは、アプリケーションのメインルーチンを実行するのではなく、テストルーチンを実行する。
+
+テストルーチンは、テストを順次実行する。
+
+* テストは失敗したら`assert`で、赤LED点灯の無限ループ。基本的に、テストがパスしたことを確認するので、どのテストに失敗したかは、UARTに出力するか、デバッガで追う。
+    + つまり、デバッグポートでUARTまたは、SWD経由のITM出力を通じて、`printf`が動くようにしておかなければならない。
+* テストが全部成功したら、緑LED点灯の無限ループで終了。
+
+
+### テスト関数の位置
+
+ユニットテストの関数を、被テスト関数と同じファイルに書くか、別のファイルに書くか、という流儀がある。得失は次のとおり。
+
+* 被テスト関数と同じファイルにテストを書く
+    + テストを追加すると、製品コードに変更がなくても、製品コードのファイルのリビジョンが上がる。
+    + 同じファイルなので`static`スコープが見える。
+* 被テスト関数とテスト関数を別ファイルに書く
+    + 管理が楽。とくに、テストを付かしても実行ファイルのリビジョンが上がらない。
+    + 別ファイルなので、シェル芸を通じてテスト関数の自動収集＆自動実行がやりやすい。IDE派にはシェル芸は関係ないが。
+    + `static`スコープの関数や変数の扱いが面倒。
+
+個人的な意見だが、被テスト関数と同じファイル内に`#ifdef TEST`としてテスト関数を書き、テストランナーからその関数を呼び出したほうが、主に`static`の扱いが簡単なので好みだ。あとは命名規則を工夫して自動化に協力しょう。
+
 
