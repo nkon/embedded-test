@@ -1,6 +1,6 @@
 #include <stdarg.h>
 
-extern void xputchar(char c);
+void (* xputchar)(char c);
 
 static void xitoa(int i, int base)
 {
@@ -12,14 +12,18 @@ static void xitoa(int i, int base)
     if (base == 10) {
         x = 1000000000;
     } else if (base == 16) {
-        x = 0xffffffff;
+        x = 0x10000000;
     }
     while (i < x) {
         x = x / base;
     }
     while (1) {
         d = i / x;
-        xputchar(d + '0');
+        if (base == 10) {
+            xputchar(d + '0');
+        } else if (base == 16) {
+            xputchar(  (d < 10) ? (d + '0') : (d - 10 + 'a'));
+        }
         i = i - d * x;
         x = x / base;
         if (!x) {
@@ -43,6 +47,8 @@ void xprintf(const char *fmt, ...)
             c = *cp++;
             if (c == 'd') {
                 xitoa(va_arg(list, int), 10);
+            } else if (c == 'x') {
+                xitoa(va_arg(list, int), 16);
             } else if (c == 's') {
                 xprintf(va_arg(list, char *));
             } else if (c == 'c') {
