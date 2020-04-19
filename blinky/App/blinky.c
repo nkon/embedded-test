@@ -25,6 +25,7 @@ void StartDefaultTask(void *argument)
 #else
     StartApp();
 #endif // TEST
+    assert(0);
 }
 
 void uart_putchar(char c) { HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 1); }

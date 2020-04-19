@@ -7,7 +7,8 @@
 #define assert(x)                                                              \
     do {                                                                       \
         if (!(x)) {                                                            \
-            HAL_UART_Transmit(&huart2, "ABORT!", 6, 1);                        \
+            xprintf(" *** Assertion Fail *** File:%s Line:%d", __FILE__,       \
+                    __LINE__);                                                 \
             while (1)                                                          \
                 ;                                                              \
         }                                                                      \
