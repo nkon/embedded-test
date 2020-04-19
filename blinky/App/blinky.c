@@ -16,7 +16,7 @@ static void StartTest(void);
 static void StartApp(void);
 #endif
 
-void StartAppTask(void *argument)
+void StartDefaultTask(void *argument)
 {
 #if TEST
     StartTest();
@@ -39,7 +39,7 @@ static void StartApp(void)
         xprintf("timer creation failuer.\r\n");
         assert(0);
     }
-    ret = osTimerStart(RtTimerHandle, 100);
+    ret = osTimerStart(RtTimerHandle, 10);
     if (ret != osOK) {
         xprintf("timer start failuer.\r\n");
         assert(0);
@@ -57,7 +57,7 @@ void RtCallback(void *argument)
     /* USER CODE BEGIN RtCallback */
     static uint32_t i;
     static bool led;
-    if (i % 100) {
+    if (i % 20 == 0) {
         if (led) {
             HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
             led = false;
@@ -70,7 +70,6 @@ void RtCallback(void *argument)
     if (i >= 2147483600) {
         i = 0;
     }
-
     /* USER CODE END RtCallback */
 }
 

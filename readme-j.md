@@ -76,6 +76,8 @@ STM32の場合は、OSが使うタイマとしてSysTickではなくTIMxを使�
 
 UIなどの遅いタスクは、ベタ書き＆`osDelay`の組み合わせで書いて良い。他のタスクとの並行動作はRTOSが面倒を見てくれる。
 
+サンプリングタスクなどの応答が重要なタスクはタイマタスクに設定する。
+
 ```c
 void StartUiTask(void *argument)
 {
@@ -95,7 +97,9 @@ void StartUiTask(void *argument)
 
 ### アイドルタスクの設定
 
-組み込みシステムでは消費電力を低減するために、不要な場合はMCUをスリープモードに入れる。RTOSには、一般的にアイドルタスクが、最低優先度のタスクとして定義されていて、他に実行待ちのタスクがない時にアイドルタスクが呼ばれる。つまり、アイドルタスクの中でスリープモードに入れば、不要な時はスリープするようになる。Cortex-Mの場合、スリープに入るインストラクションは`WFI`(wait for interrupt)として知られているがSTM32の場合は、清く正しくAPI(`HAL_PWR_EnterSLEEPMode()`)を使おう。RTOSがOS_TICK（デフォルトでは1ms）ごとにSLEEPから起動して実行しなければならないタスクがあれば実行してくれる。
+組み込みシステムでは消費電力を低減するために、不要な場合はMCUをスリープモードに入れる。RTOSには、一般的にアイドルタスクが、最低優先度のタスクとして定義されていて、他に実行待ちのタスクがない時にアイドルタスクが呼ばれる。つまり、アイドルタスクの中でスリープモードに入れば、不要な時はスリープするようになる。
+
+Cortex-Mの場合、スリープに入るインストラクションは`WFI`(wait for interrupt)として知られている。STM32の場合は、清く正しくAPI(`HAL_PWR_EnterSLEEPMode()`)を使おう。RTOSがOS_TICK（デフォルトでは1ms）ごとにSLEEPから起動して実行しなければならないタスクがあれば実行してくれる。
 
 CubeMXであれば、`USE_IDLE_HOOK`を`Enable`にしておくと、アイドルタスクが呼ばれた時にコールバックされるフック関数`vApplicationIdleHook(void)`
 を生成してくれる。このアイドルフックはFreeRTOSの機能なので、命名規則がFreeRTOS風になっている。自動生成側はweak symbolになっているので、そのまま上書き定義すればよい。
@@ -106,6 +110,12 @@ void vApplicationIdleHook( void )
     HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
 }
 ```
+
+### タイマタスクの設定
+
+タイマタスクは周期的に実行するようなタスクのために定義される。実際には、OSの中に暗黙に生成されるタイマデーモンから、定期的に指定したタスクが呼び出される。タイマタスクは、呼び出されるごとにタイマ制約時間内で上から下まで実行して終了するような関数として記述する。できる限り短時間で終了するように書かれなければならない。また、他のタスクに実行権を移す`osDelay`のような関数は使えない。
+
+CubeMXの場合、タイマーデーモンの優先順位（`TIMER_TASK_PRIORITY`）の初期値が2と非常に低いので、タイマタスクに実行権限が回ってこない。48（(`osPriorityRealtime`と同じ）ぐらいに修正しておこう。この初期値はバグといってもいいぐらいだ。
 
 ## アプリ関数を外部ファイルに移す。
 
@@ -121,26 +131,22 @@ void vApplicationIdleHook( void )
 コード生成系との兼ね合いがあるが、次のようなタスク構成は有用だろう。
 
 
-|task name  |Priority            |CodeGeneration|
-|-----------|--------------------|--------------|
-|defaultTask|`osPriorityLow`     |Default       |
-|AppTask    |`osPriorityNormal`  |As External   |
+|task name  |Priority            |CodeGeneration|EntryPoint        |
+|-----------|--------------------|--------------|------------------|
+|defaultTask|`osPriorityNormal`  |As Weak       |`StartDefaultTask`|
 
-|timer name |Type                |CodeGeneration|
-|-----------|--------------------|--------------|
-|RtTimer    |`osTimerPeriodic`   |As External   |
+|timer name |Type                |CodeGeneration|Callback |
+|-----------|--------------------|--------------|---------|
+|RtTimer    |`osTimerPeriodic`   |As External   |`RtTimer`|
 
-
-* `defaultTask`
-    + Sleep Modeへ入るために`osPriorityLow`とする。
-    + すきあらばSleep Modeに入る。
-* `AppTask`
-    + コード生成が`As External`なので、`main.c`には生成されない。`App/blinly.c`にタスクコールバックを作成する。
-    + defaultTaskより高い優先度にする。
-    + `#define TEST`ならば、テストルーチンを起動する。
-    + `#undef TEST`ならば、アプリルーチンを起動する。
+* `StartDefaultTask`
+    + 通常のコンテキストでの実行。
+    + タスク本体はweak symbolで生成されるので、`App/blinky.c`に上書きで作成する。
+    + アプリ、テストなどのタスクを条件に応じて起動する。
+        - `#define TEST`ならば、テストルーチンを起動する。
+        - `#undef TEST`ならば、アプリルーチンを起動する。
 * `StartApp()`
-    + `AppTask`のタスクコールバックから呼ばれる普通の関数。
+    + `defaultTask`から呼ばれるアプリ本体。
     + タイマ（この想定ではハードウエア制御のための高頻度高精度タイマルーチン）を起動する。
     + 低速応答は`osDelay()`で処理する。
     + アプリケーションのメインのタスクは、初期化をしたあと無限ループに入る。この関数は終了してはならない。
@@ -155,50 +161,50 @@ void vApplicationIdleHook( void )
     + タイマータスクは明示的なスタートが必要。
     + タイマが発火したら初期化時に指定したコールバック関数が呼ばれるだけなので実装は楽。
     + 他スレッドとの情報共有は、グローバル変数かキューが使われる。
-        - グローバル変数の場合は、書き込み、読み出しにタイミングによるレースコンディションに注意。
+        - グローバル変数の場合は、書き込み、読み出しにタイミングによるレースコンディションに注意。読み書きの同期を図るために、適切にセマフォを使うことが必要になるだろう。
         - キューの場合はRTOSのAPIで生成する。
-    + CubeMXの場合`TIMER_TASK_PRIORITY`の初期値が2と非常に低いので、タイマタスクに実行権限が回ってこない。48(osPriorityRealtimeと同じ)ぐらいに修正しておこう。この初期値はバグといってもいいぐらいだ。
+    + CubeMXの場合`TIMER_TASK_PRIORITY`の初期値が2と非常に低いので、タイマタスクに実行権限が回ってこない。48（osPriorityRealtimeと同じ）ぐらいに修正しておこう。この初期値はバグといってもいいぐらいだ。
+* IdleTask
+    + 明示的には生成されないが、暗黙に生成される。
+    + アイドル時にスリープに入るようにしておくと消費電流を節約できる（上述）。
 
-こうすれば、自動生成される`main.c`は`StartDefaultTask()`の中を1行書き換える（`HAL_PWR_EnterSLEEPMode()`を呼ぶ）だけで、他の手書きの修正は`App/`以下に閉じ込めておくことができる。さらに、`main.c`の変更は、`/* USER CODE BEGIN */`で囲まれているので、再生成しても保存される。
-
-
-`main.c`
-```c
-void StartDefaultTask(void *argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
-  }
-  /* USER CODE END 5 */ 
-}
-```
+こうすれば、自動生成と相性がよく、再生成を問題なく実行でき、ユーザ作成アプリ（`App/`以下）を分離できる。
 
 `App/blinky.c`
 ```c
-void StartAppTask(void *argument)
+void StartDefaultTask(void *argument)
 {
 #if TEST
     StartTest();
 #elif HWTEST
-    StartHwTest();
+    StartHwTest()
 #else
     StartApp();
 #endif // TEST
 }
 
-void StartApp(void)
+void uart_putchar(char c) { HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 1); }
+
+static void StartApp(void)
 {
-  osTimerStart(RtTimerHandle, 10);
-  for(;;)
-  {
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
-    osDelay(1000);
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
-    osDelay(1000);
-  }
+    int i = 0;
+    osStatus_t ret;
+    xputchar = uart_putchar;
+    xprintf("StartApp().\r\n");
+    if (!RtTimerHandle) {
+        xprintf("timer creation failuer.\r\n");
+        assert(0);
+    }
+    ret = osTimerStart(RtTimerHandle, 100);
+    if (ret != osOK) {
+        xprintf("timer start failuer.\r\n");
+        assert(0);
+    }
+    for (;;) {
+        osDelay(100);
+        i++;
+        xprintf("d:%d x:%x\r\n", i, i, i);
+    }
 }
 
 void StartTest(void *argument)
@@ -213,9 +219,22 @@ void StartTest(void *argument)
 /* RtCallback function */
 void RtCallback(void *argument)
 {
-  /* USER CODE BEGIN RtCallback */
-  
-  /* USER CODE END RtCallback */
+    static uint32_t i;
+    static bool led;
+    if (i % 20 == 0) {
+        if (led) {
+            HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+            led = false;
+        } else {
+            HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+            led = true;
+        }
+    }
+    i++;  
+}
+void vApplicationIdleHook(void)
+{
+    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
 }
 ```
 
@@ -261,7 +280,7 @@ void RtCallback(void *argument)
 
 以下にいろいろな実装について述べる。
 
-しかし`printf`の使いみちは、なにもデバッグ時やテスト時にログを出すだけではない。UART通信のフォーマットを構築するのにも使える。また、実動作時にも`assert`を有効にしておいて、引っかかった時は内蔵フラッシュに記録を残しつつリブートして動作を継続しておき、あとで解析するなど、の用途にも使える。つまり、いろいろ使いみちがあるので、実環境でも使いやすい、小型でカスタマイズできる`printf`を実装して組み込んでおくと便利だ。
+しかし`printf`の使いみちは、なにもデバッグ時やテスト時にログを出すだけではない。UART通信のフォーマットを構築するのにも使える。また、実動作時にも`assert`を有効にしておいて、引っかかった時は内蔵フラッシュに記録を残しつつリブートして動作を継続しておき後で解析するなど、の用途にも使える。つまり、いろいろ使いみちがあるので、実環境でも使いやすい、小型でカスタマイズできる`printf`を実装して組み込んでおくと便利だ。
 
 
 ### UARTの使い方

@@ -29,6 +29,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 typedef StaticTask_t osStaticThreadDef_t;
+typedef StaticTimer_t osStaticTimerDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -55,24 +56,15 @@ const osThreadAttr_t defaultTask_attributes = {
   .stack_size = sizeof(defaultTaskBuffer),
   .cb_mem = &defaultTaskControlBlock,
   .cb_size = sizeof(defaultTaskControlBlock),
-  .priority = (osPriority_t) osPriorityLow,
-};
-/* Definitions for AppTask */
-osThreadId_t AppTaskHandle;
-uint32_t AppTaskBuffer[ 128 ];
-osStaticThreadDef_t AppTaskControlBlock;
-const osThreadAttr_t AppTask_attributes = {
-  .name = "AppTask",
-  .stack_mem = &AppTaskBuffer[0],
-  .stack_size = sizeof(AppTaskBuffer),
-  .cb_mem = &AppTaskControlBlock,
-  .cb_size = sizeof(AppTaskControlBlock),
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for RtTimer */
 osTimerId_t RtTimerHandle;
+osStaticTimerDef_t RtTimerControlBlock;
 const osTimerAttr_t RtTimer_attributes = {
-  .name = "RtTimer"
+  .name = "RtTimer",
+  .cb_mem = &RtTimerControlBlock,
+  .cb_size = sizeof(RtTimerControlBlock),
 };
 /* USER CODE BEGIN PV */
 
@@ -83,7 +75,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
-extern void StartAppTask(void *argument);
 extern void RtCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -154,9 +145,6 @@ int main(void)
   /* Create the thread(s) */
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
-
-  /* creation of AppTask */
-  AppTaskHandle = osThreadNew(StartAppTask, NULL, &AppTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -294,7 +282,7 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+__weak void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */

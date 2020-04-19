@@ -1,8 +1,8 @@
 #MicroXplorer Configuration settings - do not modify
 FREERTOS.FootprintOK=true
 FREERTOS.IPParameters=Tasks01,FootprintOK,Timers01,configUSE_IDLE_HOOK,configTIMER_TASK_PRIORITY
-FREERTOS.Tasks01=defaultTask,8,128,StartDefaultTask,Default,NULL,Static,defaultTaskBuffer,defaultTaskControlBlock;AppTask,24,128,StartAppTask,As external,NULL,Static,AppTaskBuffer,AppTaskControlBlock
-FREERTOS.Timers01=RtTimer,RtCallback,osTimerPeriodic,As external,NULL,Dynamic,NULL
+FREERTOS.Tasks01=defaultTask,24,128,StartDefaultTask,As weak,NULL,Static,defaultTaskBuffer,defaultTaskControlBlock
+FREERTOS.Timers01=RtTimer,RtCallback,osTimerPeriodic,As external,NULL,Static,RtTimerControlBlock
 FREERTOS.configTIMER_TASK_PRIORITY=48
 FREERTOS.configUSE_IDLE_HOOK=1
 File.Version=6
