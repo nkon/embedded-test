@@ -29,7 +29,6 @@
 
 /* Private typedef -----------------------------------------------------------*/
 typedef StaticTask_t osStaticThreadDef_t;
-typedef StaticTimer_t osStaticTimerDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -72,11 +71,8 @@ const osThreadAttr_t AppTask_attributes = {
 };
 /* Definitions for RtTimer */
 osTimerId_t RtTimerHandle;
-osStaticTimerDef_t RtTimerControlBlock;
 const osTimerAttr_t RtTimer_attributes = {
-  .name = "RtTimer",
-  .cb_mem = &RtTimerControlBlock,
-  .cb_size = sizeof(RtTimerControlBlock),
+  .name = "RtTimer"
 };
 /* USER CODE BEGIN PV */
 
@@ -304,7 +300,6 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
   }
   /* USER CODE END 5 */ 
 }

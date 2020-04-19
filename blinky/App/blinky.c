@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 #include "assert.h"
 #include "cmsis_os.h"
 #include "main.h"
@@ -18,6 +20,8 @@ void StartAppTask(void *argument)
 {
 #if TEST
     StartTest();
+#elif HWTEST
+    StartHwTest()
 #else
     StartApp();
 #endif // TEST
@@ -28,16 +32,51 @@ void uart_putchar(char c) { HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 1); }
 static void StartApp(void)
 {
     int i = 0;
+    osStatus_t ret;
     xputchar = uart_putchar;
-    osTimerStart(RtTimerHandle, 10);
+    xprintf("StartApp().\r\n");
+    if (!RtTimerHandle) {
+        xprintf("timer creation failuer.\r\n");
+        assert(0);
+    }
+    ret = osTimerStart(RtTimerHandle, 100);
+    if (ret != osOK) {
+        xprintf("timer start failuer.\r\n");
+        assert(0);
+    }
     for (;;) {
-        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-        osDelay(100);
-        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
         osDelay(100);
         i++;
         xprintf("d:%d x:%x\r\n", i, i, i);
     }
+}
+
+/* RtCallback function */
+void RtCallback(void *argument)
+{
+    /* USER CODE BEGIN RtCallback */
+    static uint32_t i;
+    static bool led;
+    if (i % 100) {
+        if (led) {
+            HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+            led = false;
+        } else {
+            HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+            led = true;
+        }
+    }
+    i++;
+    if (i >= 2147483600) {
+        i = 0;
+    }
+
+    /* USER CODE END RtCallback */
+}
+
+void vApplicationIdleHook(void)
+{
+    HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
 }
 
 #ifdef TEST
@@ -69,16 +108,15 @@ static void StartTest(void)
     s_buf[s_cnt] = 0;
     assert(!strcmp(s_buf, "d:10 x:a"));
 
+    // After all test pass, GREEN LED(LD2) lights.
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
     for (;;) {
     }
 }
 #endif // TEST
 
-/* RtCallback function */
-void RtCallback(void *argument)
-{
-    /* USER CODE BEGIN RtCallback */
+#ifdef HWTEST
 
-    /* USER CODE END RtCallback */
-}
+static void StartHwTest(void) {}
+
+#endif // TEST

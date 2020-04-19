@@ -1,6 +1,7 @@
 #include <stdarg.h>
 
-void (* xputchar)(char c);
+// function pointer to the 1-char output function.
+void (*xputchar)(char c);
 
 static void xitoa(int i, int base)
 {
@@ -14,7 +15,7 @@ static void xitoa(int i, int base)
     } else if (base == 16) {
         x = 0x10000000;
     }
-    while (i < x) {
+    while (i < x) { // suppless leading '0'
         x = x / base;
     }
     while (1) {
@@ -22,7 +23,7 @@ static void xitoa(int i, int base)
         if (base == 10) {
             xputchar(d + '0');
         } else if (base == 16) {
-            xputchar(  (d < 10) ? (d + '0') : (d - 10 + 'a'));
+            xputchar((d < 10) ? (d + '0') : (d - 10 + 'a'));
         }
         i = i - d * x;
         x = x / base;
