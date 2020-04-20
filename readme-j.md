@@ -118,10 +118,7 @@ void vApplicationIdleHook( void )
 タイマタスクは周期的に実行するようなタスクのために定義される。実際には、暗黙に生成されるタイマデーモンから、定期的に指定したタスクが呼び出される。タイマタスクは、呼び出されるごとにタイマ制約時間内で上から下まで実行して終了するような関数として記述する。できる限り短時間で終了するように書かれなければならない。また、他のタスクに実行権を移す`osDelay()`のような関数は使えない。
 
 今考えているアプリケーションでは、メインのタスクを邪魔しないように空き時間に実行するタスクではなく、タイマタスクはサンプリングなどのハードリアルタイム処理である。初期値はタイマタスクのプライオリティが低くなっているが、`osPriorityRealtime`と同じぐらいの48に修正しておこう。
-
-## アプリ関数を外部ファイルに移す。
-
-なるべく早い段階で、自動生成するファイルとユーザコードが入るファイルを分けるべきだ。できれば、ディレクトリツリーレベルで分離しよう。自動生成したファイルを修正必要がある場合でも、再生成に耐えるようにしておかなければならない。
+Priorityレベルで分離しよう。自動生成したファイルを修正必要がある場合でも、再生成に耐えるようにしておかなければならない。
 
 きちんと、このへんの設計をしようと思えば、使っている自動生成のツールのクセ、およびコンパイラの`#include`の処理、リンカの振る舞いについてきちんと知っておかなければならない。さもないと、分離をしようとおもったにもかかわらず複雑な依存関係を作りこんでしまうこともある。
 
@@ -210,15 +207,6 @@ static void StartApp(void)
     }
 }
 
-void StartTest(void *argument)
-{
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,GPIO_PIN_SET);
-  for(;;)
-  {
-  }
-}
-
 /* RtCallback function */
 void RtCallback(void *argument)
 {
@@ -242,6 +230,70 @@ void vApplicationIdleHook(void)
 ```
 
 ## FWテストのスコープ
+
+組み込みのテストにおいて、ときどき議論となるのがペリフェラル（ＭＣＵ内蔵、および外付け）の取り扱いだ。例えば、システムが、センサからのデータをADCで取り込み、ノイズ除去をして、UART経由で無線モジュールに送信し、サーバにデータを蓄積するものだとしよう。この場合、自動化されたFWのユニットテスト的なものはどうなるだろうか？
+
+* ADCでのデータ取り込み：入力電圧に応じた変換結果がえられる。
+* ノイズ除去：入力データからノイズを除去した出力データがえられる。これは、入力データを与えて出力データを期待値と比較すれば良さそう。
+* UARTで無線モジュールに送信：ボーレートやフォーマットは無線モジュールが期待するものに対して適正だろうか。
+* サーバにデータが蓄積される：無線モジュールが正常に動作して、サーバとの通信が確立し、サーバアプリが正常にデータをストアする。
+
+こうやってみてみればファームウエア単体ではノイズ除去の部分ぐらいしかテストしようがない。それ以外のシステムのテストはテストモードのファームウエアを作って、部分的なペリフェラルの動作テストをするのがいいだろう。そして、そのような動作テスト・ファームウエアは使い捨てではなくいつでも使えるようにしておくべきだし、使いやすいようにして、頻繁に動作テストを行うべきだろう。
+
+`-DHWTEST`でファームウエアがビルドされたときは、ペリフェラルのテストプログラムが走るのが良いアイデアだ。システムに最低でも一つ、入力ボタンがあれば、入力ボタンを押すことによって、テスト対象のペリフェラルが切り替わると使いやすい。例えば次のような。
+
+```c
+void StartDefaultTask(void *argument)
+{
+#if TEST
+    StartTest();
+#elif HWTEST
+    StartHwTest();
+#else
+    StartApp();
+#endif // TEST
+    assert(0);
+}
+
+#ifdef HWTEST
+
+static bool button_pushed(void)
+{
+    // GPIO_PIN_SET => button is not pushed.
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port,B1_Pin)==GPIO_PIN_SET) {
+        return false;
+    }
+    osDelay(150);
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port,B1_Pin)==GPIO_PIN_SET) {
+        return false;
+    }
+    return true;    
+}
+
+static void StartHwTest(void) {
+
+    xputchar = uart_putchar;
+    xprintf("push button to start HW_TEST\r\n");
+
+    while(!button_pushed()); 
+    xprintf("LED turn on\r\n");
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+    while(!button_pushed()); 
+    xprintf("LED turn off\r\n");
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+    
+    while(!button_pushed()); 
+
+    // After all test pass, GREEN LED(LD2) lights.
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+    xprintf("HW_TEST completed!\r\n");
+    for (;;) {
+    }
+}
+
+#endif // HWTEST
+```
 
 ## テストモードの作成
 
@@ -276,6 +328,46 @@ void vApplicationIdleHook(void)
     + `static`スコープの関数や変数の扱いが面倒。
 
 個人的な意見だが、被テスト関数と同じファイル内に`#ifdef TEST`としてテスト関数を書き、テストランナーからその関数を呼び出したほうが、主に`static`の扱いが簡単なので好みだ。あとは命名規則を工夫して自動化に協力しょう。
+
+次の関数は`TEST`が`#define`されている場合、上述の`StartDefaultTask`から呼ばれる。1文字出力関数を置き換えて出力結果をバッファに取るようにし、`xprintf`に関してフォーマットのテストを行う。テストが失敗すれば`assert(0)`で停止。全てのテストが合格すれば、緑LEDを点灯して無限ループになる。
+
+
+```c
+#ifdef TEST
+
+#include <string.h>
+
+static char s_buf[256];
+static char s_cnt = 0;
+
+void buf_putchar(char c) { s_buf[s_cnt++] = c; }
+
+static void StartTest(void)
+{
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+    xputchar = buf_putchar;      // 1文字出力関数をバッファライタにする。
+
+    // xprintf("printf") == "printf"
+    s_cnt = 0;
+    xprintf("printf");
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "printf"));    // バッファに書いた文字列を期待値と比較する。test fail→assert fail
+
+    // xprintf("d:%d x:%x", 10, 10) == "d:10 x:a"
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 10, 10);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:10 x:a"));
+
+    // After all test pass, GREEN LED(LD2) lights.
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+    for (;;) {
+    }
+}
+#endif // TEST
+```
+
 
 ## printf
 
@@ -394,3 +486,4 @@ void xprintf(const char *fmt, ...)
 ```c
 void xputchar(char c) { HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 1); }
 ```
+

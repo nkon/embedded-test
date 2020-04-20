@@ -42,7 +42,7 @@ static void StartApp(void)
         xprintf("timer creation failuer.\r\n");
         assert(0);
     }
-    ret = osTimerStart(RtTimerHandle, 10);
+    ret = osTimerStart(RtTimerHandle, 1);
     if (ret != osOK) {
         xprintf("timer start failuer.\r\n");
         assert(0);
@@ -60,7 +60,7 @@ void RtCallback(void *argument)
     /* USER CODE BEGIN RtCallback */
     static uint32_t i;
     static bool led;
-    if (i % 20 == 0) {
+    if (i % 200 == 0) {
         if (led) {
             HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
             led = false;
@@ -155,4 +155,4 @@ static void StartHwTest(void) {
     }
 }
 
-#endif // TEST
+#endif // HWTEST
