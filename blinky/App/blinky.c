@@ -12,6 +12,8 @@ extern UART_HandleTypeDef huart2;
 
 #ifdef TEST
 static void StartTest(void);
+#elif HWTEST
+static void StartHwTest(void);
 #else
 static void StartApp(void);
 #endif
@@ -21,7 +23,7 @@ void StartDefaultTask(void *argument)
 #if TEST
     StartTest();
 #elif HWTEST
-    StartHwTest()
+    StartHwTest();
 #else
     StartApp();
 #endif // TEST
@@ -76,6 +78,7 @@ void RtCallback(void *argument)
 
 void vApplicationIdleHook(void)
 {
+//    HAL_UART_Transmit(&huart2, "S", 1, 1);
     HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
 }
 
@@ -117,6 +120,39 @@ static void StartTest(void)
 
 #ifdef HWTEST
 
-static void StartHwTest(void) {}
+static bool button_pushed(void)
+{
+    // GPIO_PIN_SET => button is not pushed.
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port,B1_Pin)==GPIO_PIN_SET) {
+        return false;
+    }
+    osDelay(150);
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port,B1_Pin)==GPIO_PIN_SET) {
+        return false;
+    }
+    return true;    
+}
+
+static void StartHwTest(void) {
+
+    xputchar = uart_putchar;
+    xprintf("push button to start HW_TEST\r\n");
+
+    while(!button_pushed()); 
+    xprintf("LED turn on\r\n");
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+    while(!button_pushed()); 
+    xprintf("LED turn off\r\n");
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+    
+    while(!button_pushed()); 
+
+    // After all test pass, GREEN LED(LD2) lights.
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+    xprintf("HW_TEST completed!\r\n");
+    for (;;) {
+    }
+}
 
 #endif // TEST

@@ -34,6 +34,16 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "make hwtest",
+            "type": "shell",
+            "command": "make -C blinky HWTEST=1",
+            "args": [],
+            "group": "build",
+            "presentation": {},
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "flash",
             "type": "shell",
             "command": "sudo ./flash.sh",

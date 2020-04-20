@@ -67,9 +67,12 @@
 
 今回はRTOSとしてFreeRTOSを使う想定だが、ARM Cortex-Mの場合はCMSIS-RTOSとして（v1とv2がある）RTOSのAPIが標準化されているので、他のRTOS（たとえばRTXなど）でも同じようになるだろう。
 
+* [https://docs.aws.amazon.com/ja_jp/freertos-kernel/latest/dg/freertos-kernel-dg.pdf](https://docs.aws.amazon.com/ja_jp/freertos-kernel/latest/dg/freertos-kernel-dg.pdf)
+* [http://www.keil.com/pack/doc/CMSIS/RTOS2/html/index.html](http://www.keil.com/pack/doc/CMSIS/RTOS2/html/index.html)
+
 ### システムタイマの設定
 
-STM32の場合は、OSが使うタイマとして`SysTick`ではなく`TIMx`を使うように推奨されるので、CubeMXの設定で`TIMx`をシステムタイマとして使うように設定する。
+STM32の場合は、OSが使うタイマとして`SysTick`ではなく`TIMx`を使うように推奨されるので、CubeMXの設定で`TIMx`をシステムタイマとして使うように設定する。`System Core`→`SYS`→`Timebase Source`で、なるべく他で使わなさそうなタイマを選べば良い。これは、HALのタイムベース(`HAL_GetTick()`など)のタイムベースとして`SysTick`ではなく指定したタイマを使うということ。RTOSの方で`SysTick`を専有するためにHALとの衝突を避けるための処置である。
 
 OSのタイマを適切に使うことで、`osDelay(ms)`のようなディレイ関数がタスク中で使える。`osDelay(ms)`は、引数で指定したミリセコンドだけ待つが、呼び出したスレッドは`BLOCKED`状態にして他に待っているタスクがあれば制御を渡す。また、タイマタスクなどの定期的な実行も可能になる。
 
@@ -114,7 +117,7 @@ void vApplicationIdleHook( void )
 
 タイマタスクは周期的に実行するようなタスクのために定義される。実際には、暗黙に生成されるタイマデーモンから、定期的に指定したタスクが呼び出される。タイマタスクは、呼び出されるごとにタイマ制約時間内で上から下まで実行して終了するような関数として記述する。できる限り短時間で終了するように書かれなければならない。また、他のタスクに実行権を移す`osDelay()`のような関数は使えない。
 
-CubeMXの場合、タイマーデーモンの優先順位（`TIMER_TASK_PRIORITY`）の初期値が2と非常に低いので、タイマタスクに実行権限が回ってこない。48（(`osPriorityRealtime`と同じ）ぐらいに修正しておこう。この初期値はバグといってもいいぐらいだ。
+今考えているアプリケーションでは、メインのタスクを邪魔しないように空き時間に実行するタスクではなく、タイマタスクはサンプリングなどのハードリアルタイム処理である。初期値はタイマタスクのプライオリティが低くなっているが、`osPriorityRealtime`と同じぐらいの48に修正しておこう。
 
 ## アプリ関数を外部ファイルに移す。
 
@@ -163,7 +166,6 @@ CubeMXの場合、タイマーデーモンの優先順位（`TIMER_TASK_PRIORITY
     + 他スレッドとの情報共有は、グローバル変数かキューが使われる。
         - グローバル変数の場合は、書き込み、読み出しにタイミングによるレースコンディションに注意。読み書きの同期を図るために、適切にセマフォを使うことが必要になるだろう。
         - キューの場合はRTOSのAPIで生成する。
-    + CubeMXの場合`TIMER_TASK_PRIORITY`の初期値が2と非常に低いので、タイマタスクに実行権限が回ってこない。48（osPriorityRealtimeと同じ）ぐらいに修正しておこう。この初期値はバグといってもいいぐらいだ。
 * IdleTask
     + 明示的には生成されないが、暗黙に生成される。
     + アイドル時はスリープに入るようにしておくと消費電流を節約できる（上述）。
