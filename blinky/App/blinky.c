@@ -78,7 +78,7 @@ void RtCallback(void *argument)
 
 void vApplicationIdleHook(void)
 {
-//    HAL_UART_Transmit(&huart2, "S", 1, 1);
+    //    HAL_UART_Transmit(&huart2, "S", 1, 1);
     HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
 }
 
@@ -91,12 +91,8 @@ static char s_cnt = 0;
 
 void buf_putchar(char c) { s_buf[s_cnt++] = c; }
 
-static void StartTest(void)
+static void test_printf(void)
 {
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-    //    HAL_UART_Transmit(&huart2, "ABORT!", 6, 1);
-    //    assert(0);
-
     xputchar = buf_putchar;
 
     // xprintf("printf") == "printf"
@@ -111,7 +107,45 @@ static void StartTest(void)
     s_buf[s_cnt] = 0;
     assert(!strcmp(s_buf, "d:10 x:a"));
 
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 0xffff, 0xffff);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:65535 x:ffff"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 0x7fffffff, 0x7fffffff);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:2147483647 x:7fffffff"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 0xffffffff, 0xffffffff);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:-1 x:-1"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", -1, -1);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:-1 x:-1"));
+
+    s_cnt = 0;
+    xprintf("Hello, %s!", "World");
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "Hello, World!"));
+}
+
+static void StartTest(void)
+{
+    xputchar = uart_putchar;
+
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+    // HAL_UART_Transmit(&huart2, "ABORT!", 6, 1);
+    // assert(0);
+
+    test_printf();
+
     // After all test pass, GREEN LED(LD2) lights.
+    xputchar = uart_putchar;
+    xprintf("ALL TEST CASES: PASS\r\n");
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
     for (;;) {
     }
@@ -123,30 +157,34 @@ static void StartTest(void)
 static bool button_pushed(void)
 {
     // GPIO_PIN_SET => button is not pushed.
-    if (HAL_GPIO_ReadPin(B1_GPIO_Port,B1_Pin)==GPIO_PIN_SET) {
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {
         return false;
     }
     osDelay(150);
-    if (HAL_GPIO_ReadPin(B1_GPIO_Port,B1_Pin)==GPIO_PIN_SET) {
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {
         return false;
     }
-    return true;    
+    return true;
 }
 
-static void StartHwTest(void) {
+static void StartHwTest(void)
+{
 
     xputchar = uart_putchar;
     xprintf("push button to start HW_TEST\r\n");
 
-    while(!button_pushed()); 
+    while (!button_pushed())
+        ;
     xprintf("LED turn on\r\n");
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-    while(!button_pushed()); 
+    while (!button_pushed())
+        ;
     xprintf("LED turn off\r\n");
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-    
-    while(!button_pushed()); 
+
+    while (!button_pushed())
+        ;
 
     // After all test pass, GREEN LED(LD2) lights.
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
