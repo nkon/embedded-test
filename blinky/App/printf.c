@@ -1,7 +1,14 @@
 #include <stdarg.h>
+#include "assert.h"
 
 // function pointer to the 1-char output function.
 void (*xputchar)(char c);
+extern void (*xputs)(char *str);
+
+static void snputchar(char *buf, int len, char *ptr, char c)
+{
+    return;
+}
 
 static void xitoa(int i, int base)
 {
@@ -31,6 +38,11 @@ static void xitoa(int i, int base)
             break;
         }
     }
+}
+
+int xsnprintf(char *buf, int len, const char *fmt,...)
+{
+    return 0;
 }
 
 void xprintf(const char *fmt, ...)
@@ -63,3 +75,56 @@ void xprintf(const char *fmt, ...)
     }
     va_end(list);
 }
+
+#ifdef TEST
+
+#include <string.h>
+
+static char s_buf[256];
+static char s_cnt = 0;
+
+void buf_putchar(char c) { s_buf[s_cnt++] = c; }
+
+void test_printf(void)
+{
+    xputchar = buf_putchar;
+
+    // xprintf("printf") == "printf"
+    s_cnt = 0;
+    xprintf("printf");
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "printf"));
+
+    // xprintf("d:%d x:%x", 10, 10) == "d:10 x:a"
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 10, 10);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:10 x:a"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 0xffff, 0xffff);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:65535 x:ffff"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 0x7fffffff, 0x7fffffff);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:2147483647 x:7fffffff"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", 0xffffffff, 0xffffffff);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:-1 x:-1"));
+
+    s_cnt = 0;
+    xprintf("d:%d x:%x", -1, -1);
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "d:-1 x:-1"));
+
+    s_cnt = 0;
+    xprintf("Hello, %s!", "World");
+    s_buf[s_cnt] = 0;
+    assert(!strcmp(s_buf, "Hello, World!"));
+}
+
+#endif // TEST
