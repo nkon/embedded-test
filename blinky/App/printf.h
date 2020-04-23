@@ -10,6 +10,7 @@ extern void xprintf(const char *fmt, ...);
 
 #ifdef TEST
 void test_printf(void);
+void test_snprintf(void);
 #endif // TEST
 
 #endif // PRINTF_H

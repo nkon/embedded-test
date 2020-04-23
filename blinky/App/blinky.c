@@ -93,6 +93,7 @@ static void StartTest(void)
     // assert(0);
 
     test_printf();
+    test_snprintf();
 
     // After all test pass, GREEN LED(LD2) lights.
     xputchar = uart_putchar;

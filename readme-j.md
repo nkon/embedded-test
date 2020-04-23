@@ -123,7 +123,6 @@ void vApplicationIdleHook( void )
 今考えているアプリケーションでは、メインのタスクを邪魔しないように空き時間に実行するタスクではなく、タイマタスクはサンプリングなどのハードリアルタイム処理である。初期値はタイマタスクのプライオリティが低くなっているが、`osPriorityRealtime`と同じぐらいの48に修正しておこう。
 
 
-
 ### タスクの構成
 
 コード生成系との兼ね合いがあるが、次のようなタスク構成は有用だろう。きちんと、このへんの設計をしようと思えば、使っている自動生成のツールのクセ、およびコンパイラの`#include`の処理、リンカの振る舞いについてきちんと知っておかなければならない。さもないと、分離をしようとおもったにもかかわらず複雑な依存関係を作りこんでしまうこともある。
@@ -192,16 +191,18 @@ static void StartApp(void)
     int i = 0;
     osStatus_t ret;
     xputchar = uart_putchar;
-    xprintf("StartApp().\r\n");
+
     if (!RtTimerHandle) {
         xprintf("timer creation failuer.\r\n");
         assert(0);
     }
+
     ret = osTimerStart(RtTimerHandle, 100);
     if (ret != osOK) {
         xprintf("timer start failuer.\r\n");
         assert(0);
     }
+
     for (;;) {
         osDelay(100);
         i++;
@@ -230,6 +231,38 @@ void vApplicationIdleHook(void)
     HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
 }
 ```
+
+#### Early Exit
+
+上の例において`StartApp()`でタイマタスクを起動するところがEarly Exitになっていることにも気づいて欲しい。
+次の例は、深い入れ子の（バッド）パターンだ。
+
+```c
+static status StartApp(void)
+{
+    int i = 0;
+    osStatus_t ret;
+    xputchar = uart_putchar;
+
+    if (RtTimerHandle != 0) {
+        ret = osTimerStart(RtTimerHandle, 100);
+        if (ret == osOK) {
+            for (;;) {
+                osDelay(100);
+                i++;
+                xprintf("d:%d x:%x\r\n", i, i, i);
+            }
+        } else {
+            xprintf("timer start failuer.\r\n");
+            return -1;
+        }
+    } else {
+        xprintf("timer creation failuer.\r\n");
+        return -1;
+    }
+}
+```
+
 
 ## FWテストのスコープ
 

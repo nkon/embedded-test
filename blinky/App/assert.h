@@ -9,7 +9,7 @@
 #define assert(x)                                                              \
     do {                                                                       \
         if (!(x)) {                                                            \
-            xprintf(" *** Assertion Fail *** File:%s Line:%d\r\n", __FILE__,       \
+            xprintf(" *** Assertion Fail *** File: %s Line: %d\r\n", __FILE__, \
                     __LINE__);                                                 \
             while (1)                                                          \
                 ;                                                              \
