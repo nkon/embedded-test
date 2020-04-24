@@ -1,7 +1,7 @@
 #include "assert.h"
 #include <stdarg.h>
 
-// function pointer to the 1-char output function.
+// function pointer to the string output function.
 void (*xputs)(char *str);
 
 static int xsitoa(char *buf, int len, int i, int base)
@@ -23,22 +23,20 @@ static int xsitoa(char *buf, int len, int i, int base)
     while (i < x) { // suppless leading '0'
         x = x / base;
     }
-    while (1) {
+    do {
         d = i / x;
         if (base == 10) {
             buf[used++] = d + '0';
         } else if (base == 16) {
             buf[used++] = (d < 10) ? (d + '0') : (d - 10 + 'a');
         }
+        if (len <= used) {
+            break;
+        }
         i = i - d * x;
         x = x / base;
-        if (!x) {
-            break;
-        }
-        if (used >= len) {
-            break;
-        }
-    }
+    } while (x);
+
     buf[used] = '\0';
     return used;
 }
@@ -71,6 +69,7 @@ int xsnprintf(char *buf, int len, const char *fmt, ...)
             buf[used++] = c;
         }
         if (len <= used) {
+            buf[len - 1] = '\0';
             return used;
         }
     }
@@ -105,6 +104,7 @@ int xvsnprintf(char *buf, int len, const char *fmt, va_list list)
             buf[used++] = c;
         }
         if (len <= used) {
+            buf[len - 1] = '\0';
             return used;
         }
     }
@@ -112,8 +112,7 @@ int xvsnprintf(char *buf, int len, const char *fmt, va_list list)
     return used;
 }
 
-
-void xprintf(const char *fmt,...)
+void xprintf(const char *fmt, ...)
 {
     va_list list;
     va_start(list, fmt);
@@ -160,26 +159,32 @@ void test_snprintf(void)
     assert(!strcmp(buf, "printf"));
 
     // xprintf("d:%d x:%x", 10, 10) == "d:10 x:a"
-    xsnprintf(buf, 255, "d:%d x:%x", 10, 10);
+    xsnprintf(buf, 256, "d:%d x:%x", 10, 10);
     assert(!strcmp(buf, "d:10 x:a"));
 
-    xsnprintf(buf, 255, "d:%d x:%x", 0xffff, 0xffff);
+    xsnprintf(buf, 256, "d:%d x:%x", 0xffff, 0xffff);
     assert(!strcmp(buf, "d:65535 x:ffff"));
 
-    xsnprintf(buf, 255, "d:%d x:%x", 0x7fffffff, 0x7fffffff);
+    xsnprintf(buf, 256, "d:%d x:%x", 0x7fffffff, 0x7fffffff);
     assert(!strcmp(buf, "d:2147483647 x:7fffffff"));
 
-    xsnprintf(buf, 255, "d:%d x:%x", 0xffffffff, 0xffffffff);
+    xsnprintf(buf, 256, "d:%d x:%x", 0xffffffff, 0xffffffff);
     assert(!strcmp(buf, "d:-1 x:-1"));
 
-    xsnprintf(buf, 255, "d:%d x:%x", -1, -1);
+    xsnprintf(buf, 256, "d:%d x:%x", -1, -1);
     assert(!strcmp(buf, "d:-1 x:-1"));
 
-    xsnprintf(buf, 255, "Hello, %s!", "World");
+    xsnprintf(buf, 256, "Hello, %s!", "World");
     assert(!strcmp(buf, "Hello, World!"));
 
-    xsnprintf(buf, 255, "Hello, %c!", 'C');
+    xsnprintf(buf, 256, "Hello, %c!", 'C');
     assert(!strcmp(buf, "Hello, C!"));
+
+    xsnprintf(buf, 10, "012345678");
+    assert(!strcmp(buf, "012345678"));
+
+    xsnprintf(buf, 10, "0123456789");
+    assert(!strcmp(buf, "012345678"));
 }
 
 #endif // TEST

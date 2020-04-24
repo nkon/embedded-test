@@ -31,7 +31,15 @@ void StartDefaultTask(void *argument)
     assert(0);
 }
 
-void uart_puts(char *str) { HAL_UART_Transmit(&huart2, str, strlen(str), 10); }
+void uart_puts(char *str) { HAL_UART_Transmit(&huart2, (uint8_t *)str, strlen(str), 10); }
+// void uart_puts(char *str)
+// {
+//     HAL_StatusTypeDef ret;
+//     while ((ret = HAL_UART_Transmit_IT(&huart2, str, strlen(str))) != HAL_OK)
+//     {
+//         osDelay(1);
+//     }
+// }
 
 static void StartApp(void)
 {
@@ -91,7 +99,7 @@ static void StartTest(void)
     xputs = uart_puts;
 
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-    HAL_UART_Transmit(&huart2, "HAL_UART", 8, 1);
+    HAL_UART_Transmit(&huart2, (uint8_t *)"HAL_UART", 8, 1);
     xputs("xputs\r\n");
     // assert(0);
 
