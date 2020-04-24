@@ -465,6 +465,8 @@ $ arm-none-eabi-objdump -D blinky/build/blinky.elf
 * 整形文字でなければ、そのまま出力する。整形文字なら整形して出力する。
 * 外部に定義される1文字出力関数（UART、ITM、USB、BT-SPPなど）を呼ぶ。
 
+もちろん、`sprintf()`をまず実装して、それを使った`printf()`の実装でも良い。
+
 ```c
 extern void xputchar(char c);
 

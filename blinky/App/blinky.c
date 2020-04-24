@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <string.h>
 
 #include "assert.h"
 #include "cmsis_os.h"
@@ -30,13 +31,14 @@ void StartDefaultTask(void *argument)
     assert(0);
 }
 
-void uart_putchar(char c) { HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 1); }
+void uart_puts(char *str) { HAL_UART_Transmit(&huart2, str, strlen(str), 10); }
 
 static void StartApp(void)
 {
     int i = 0;
     osStatus_t ret;
-    xputchar = uart_putchar;
+
+    xputs = uart_puts;
     xprintf("StartApp().\r\n");
     if (!RtTimerHandle) {
         xprintf("timer creation failuer.\r\n");
@@ -86,17 +88,18 @@ void vApplicationIdleHook(void)
 
 static void StartTest(void)
 {
-    xputchar = uart_putchar;
+    xputs = uart_puts;
 
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-    // HAL_UART_Transmit(&huart2, "ABORT!", 6, 1);
+    HAL_UART_Transmit(&huart2, "HAL_UART", 8, 1);
+    xputs("xputs\r\n");
     // assert(0);
 
     test_printf();
     test_snprintf();
 
     // After all test pass, GREEN LED(LD2) lights.
-    xputchar = uart_putchar;
+    // xputchar = uart_putchar;
     xprintf("ALL TEST CASES: PASS\r\n");
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
     for (;;) {
