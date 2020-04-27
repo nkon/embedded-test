@@ -79,7 +79,7 @@ int xsnprintf(char *buf, int len, const char *fmt, ...)
     return used;
 }
 
-int xvsnprintf(char *buf, int len, const char *fmt, va_list list)
+static int xvsnprintf(char *buf, int len, const char *fmt, va_list list)
 {
     const char *cp = fmt;
     char c;
